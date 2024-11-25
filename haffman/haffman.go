@@ -27,16 +27,16 @@ func Insert(a *ByFreq, x *Node) {
 	*a = append(*a, x)
 }
 
-func CountBytes(data []byte) *map[byte]uint32 {
+func CountBytes(data *[]byte) *map[byte]uint32 {
 	frequency := make(map[byte]uint32)
-	for _, c := range data {
+	for _, c := range *data {
 		frequency[c]++
 	}
 
 	return &frequency
 }
 
-func BuildHuffmanTree(data []byte, frequency *map[byte]uint32) *Node {
+func BuildHuffmanTree(frequency *map[byte]uint32) *Node {
 	pq := &ByFreq{}
 
 	for char, freq := range *frequency {
@@ -84,12 +84,12 @@ func BuildHuffmanCodes(root *Node) *map[byte]string {
 	return &huffmanCodes
 }
 
-func Encode(data []byte) []byte {
+func Encode(data *[]byte) *[]byte {
 	countedBytes := CountBytes(data)
-	haffmanTree := BuildHuffmanTree(data, countedBytes)
+	haffmanTree := BuildHuffmanTree(countedBytes)
 	codes := BuildHuffmanCodes(haffmanTree)
 
-	encoded := make([]byte, 0, len(data))
+	encoded := make([]byte, 0, len(*data))
 
 	for countedByte, frequency := range *countedBytes {
 		encoded = append(encoded, countedByte)
@@ -105,7 +105,7 @@ func Encode(data []byte) []byte {
 
 	var bufferedByte byte = 0
 	var counter byte = 0
-	for _, dataByte := range data {
+	for _, dataByte := range *data {
 		currentCode := (*codes)[dataByte]
 		for _, bit := range currentCode {
 			if bit == '1' {
@@ -121,7 +121,7 @@ func Encode(data []byte) []byte {
 	}
 	encoded = append(encoded, bufferedByte)
 	encoded = append(encoded, counter)
-	return encoded
+	return &encoded
 }
 
 func allZeroes(arr []byte) bool {
@@ -168,18 +168,18 @@ func BuildHuffmanDecodes(root *Node) *map[string]byte {
 	return &huffmanCodes
 }
 
-func Decode(data []byte) []byte {
+func Decode(data *[]byte) *[]byte {
 	var terminateBuffer = [5]byte{}
 	var dataStartBios = 0
 
 	countedBytes := make(map[byte]uint32)
 
 	for ; true; dataStartBios += 5 {
-		terminateBuffer[0] = data[dataStartBios]
-		terminateBuffer[1] = data[dataStartBios+1]
-		terminateBuffer[2] = data[dataStartBios+2]
-		terminateBuffer[3] = data[dataStartBios+3]
-		terminateBuffer[4] = data[dataStartBios+4]
+		terminateBuffer[0] = (*data)[dataStartBios]
+		terminateBuffer[1] = (*data)[dataStartBios+1]
+		terminateBuffer[2] = (*data)[dataStartBios+2]
+		terminateBuffer[3] = (*data)[dataStartBios+3]
+		terminateBuffer[4] = (*data)[dataStartBios+4]
 
 		// fmt.Println(terminateBuffer)
 
@@ -191,7 +191,7 @@ func Decode(data []byte) []byte {
 		countedBytes[terminateBuffer[0]] = bytesToUint32(terminateBuffer[1:])
 	}
 
-	haffmanTree := BuildHuffmanTree(data, &countedBytes)
+	haffmanTree := BuildHuffmanTree(&countedBytes)
 	codes := BuildHuffmanDecodes(haffmanTree)
 
 	maxCodeLength := 0
@@ -201,10 +201,10 @@ func Decode(data []byte) []byte {
 		}
 	}
 
-	decoded := make([]byte, 0, len(data))
+	decoded := make([]byte, 0, len(*data))
 
 	bufferedCode := ""
-	for _, dataByte := range data[dataStartBios : len(data)-2] {
+	for _, dataByte := range (*data)[dataStartBios : len(*data)-2] {
 		for counter := 0; counter < 8; counter++ {
 			if ((int(dataByte) >> (7 - counter)) & 1) == 1 {
 				bufferedCode += "1"
@@ -220,10 +220,10 @@ func Decode(data []byte) []byte {
 		}
 	}
 
-	lastByteValidBitsAmount := data[len(data)-1]
+	lastByteValidBitsAmount := (*data)[len(*data)-1]
 	if lastByteValidBitsAmount < 8 {
 		for counter := 0; counter < int(lastByteValidBitsAmount); counter++ {
-			if int(data[len(data)-2])>>(7-counter)&1 == 1 {
+			if int((*data)[len(*data)-2])>>(7-counter)&1 == 1 {
 				bufferedCode += "1"
 			} else {
 				bufferedCode += "0"
@@ -235,5 +235,5 @@ func Decode(data []byte) []byte {
 		}
 	}
 
-	return decoded
+	return &decoded
 }

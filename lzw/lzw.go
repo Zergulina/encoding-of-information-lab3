@@ -1,90 +1,47 @@
 package lzw
 
-import (
-	"fmt"
-	"os"
-)
+import "fmt"
 
 func Encode(data *[]byte, dictionarySize uint32) *[]byte {
-	bufferedCode := make([]byte, 0, dictionarySize/2)
 	dictionary := make(map[string]uint32)
+	for i := 0; i < 256; i++ {
+		dictionary[string(byte(i))] = uint32(i)
+	}
+
+	currentSize := uint32(256)
 	encode := make([]byte, 0, len(*data))
-	var counter uint64 = 0
+	w := ""
 
 	for i := 0; i < 4; i++ {
 		encode = append(encode, byte((dictionarySize)>>(8*(3-i))))
 	}
 
-	for i := 0; i < len((*data))-1; i++ {
-		bufferedCode = append(bufferedCode, (*data)[i])
-		if _, ok := dictionary[string(append(bufferedCode, (*data)[i+1]))]; ok {
-			continue
-		}
-		if len(bufferedCode) == 1 {
-			for j := 0; j < 3; j++ {
-				encode = append(encode, 0)
-			}
-			encode = append(encode, bufferedCode[0])
+	for _, k := range *data {
+		wk := w + string(k)
+		if _, ok := dictionary[wk]; ok {
+			w = wk
 		} else {
 			for j := 0; j < 4; j++ {
-				encode = append(encode, byte((dictionary[string(bufferedCode)]+256)>>(8*(3-j))))
+				encode = append(encode, byte(dictionary[w]>>(8*(3-j))))
+			}
+
+			dictionary[wk] = uint32(currentSize)
+			currentSize++
+			w = string(k)
+			if currentSize == dictionarySize+256 {
+				currentSize = 256
+				dictionary = make(map[string]uint32)
+				for i := 0; i < 256; i++ {
+					dictionary[string(byte(i))] = uint32(i)
+				}
 			}
 		}
-
-		for key, val := range dictionary {
-			if val == uint32(counter) {
-				delete(dictionary, key)
-				break
-			}
-		}
-		dictionary[string(append(bufferedCode, (*data)[i+1]))] = uint32(counter)
-
-		bufferedCode = make([]byte, 0, dictionarySize/2)
-		counter++
-		if counter == uint64(dictionarySize) {
-			counter = 0
-		}
-		// fmt.Println(counter)
-		// if encode[len(encode)-4] == 0 && encode[len(encode)-3] == 0 && encode[len(encode)-2] == 0 && encode[len(encode)-1] == 0 {
-		// 	fmt.Println(i, byte((dictionary[string(bufferedCode)]+256)>>24), byte((dictionary[string(bufferedCode)]+256)>>16), byte((dictionary[string(bufferedCode)]+256)>>8), byte(dictionary[string(bufferedCode)]+256), encode[len(encode)-4:len(encode)])
-		// }
-
 	}
-
-	bufferedCode = append(bufferedCode, (*data)[len((*data))-1])
-	if len(bufferedCode) == 1 {
-		for i := 0; i < 3; i++ {
-			encode = append(encode, 0)
-		}
-		encode = append(encode, bufferedCode[0])
-	} else {
-		for i := 0; i < 4; i++ {
-			encode = append(encode, byte((dictionary[string(bufferedCode)]+256)>>(8*(3-i))))
+	if len(w) > 0 {
+		for j := 0; j < 4; j++ {
+			encode = append(encode, byte(dictionary[w]>>(8*(3-j))))
 		}
 	}
-
-	// fmt.Println(encode)
-
-	file, err := os.Create("input.txt")
-	if err != nil {
-		fmt.Println("Ошибка создания файла:", err)
-	}
-	defer file.Close()
-
-	// Итерация по мапе и запись в файл
-	for key, value := range dictionary {
-		// Преобразование ключа и значения в строку
-		keyStr := fmt.Sprintf("%v", []byte(key))
-		valueStr := fmt.Sprintf("%v", value)
-
-		// Запись ключа и значения в файл
-		line := keyStr + ": " + valueStr + "\n"
-		_, err = file.WriteString(line)
-		if err != nil {
-			fmt.Println("Ошибка записи в файл:", err)
-		}
-	}
-
 	return &encode
 }
 
@@ -97,126 +54,55 @@ func bytesToUint32(arr []byte) uint32 {
 }
 
 func Decode(data *[]byte) *[]byte {
-	decode := make([]byte, 0, 4*len(*data))
-	var dictionarySize uint32 = 0
-
-	dictionary := make(map[uint64][]byte)
-
-	dataBuffer := make([]byte, 0, len(*data))
-
-	for i := 0; i < 4; i++ {
-		dictionarySize |= (uint32((*data)[i]) << ((3 - i) * 8))
+	dictionary := make(map[uint32][]byte)
+	for i := 0; i < 256; i++ {
+		dictionary[uint32(i)] = []byte{byte(i)}
 	}
 
-	var counter uint64 = 0
+	currentSize := uint32(256)
 
-	for i := 4; i < len(*data); i += 4 {
-		_, ok := dictionary[counter]
-		if ok {
-			delete(dictionary, counter)
-		}
+	decode := make([]byte, 0, len(*data)*4)
 
-		code := bytesToUint32((*data)[i : i+4])
-		if code < 256 {
-			decode = append(decode, byte(code))
-			if len(dataBuffer) > 0 {
-				dst := make([]byte, len(dataBuffer))
-				copy(dst, dataBuffer)
-				dictionary[counter] = append(dst, byte(code))
-				counter++
+	dictionarySize := bytesToUint32((*data)[:4])
 
-			}
-			// fmt.Println(decode[:25])
-			dataBuffer = []byte{byte(code)}
+	fmt.Println(dictionarySize)
+
+	decode = append(decode, (*data)[7])
+
+	w := []byte{(*data)[7]}
+
+	for i := 8; i < len(*data); i += 4 {
+		var entry []byte
+		k := bytesToUint32((*data)[i : i+4])
+		if _, ok := dictionary[k]; ok {
+			dst := make([]byte, len(dictionary[k]))
+			copy(dst, dictionary[k])
+			entry = dst
 		} else {
-			if val, ok := dictionary[uint64(code)-256]; ok {
-				decode = append(decode, val...)
-				dst := make([]byte, len(dataBuffer))
-				copy(dst, dataBuffer)
-				dictionary[counter] = append(dst, val[0])
-				dataBuffer = dictionary[uint64(code)-256]
-
-				counter++
+			if k == uint32(currentSize) {
+				dst := make([]byte, len(w))
+				copy(dst, w)
+				entry = append(dst, dst[0])
 			} else {
-				dst := make([]byte, len(dataBuffer))
-				copy(dst, dataBuffer)
-				dataBuffer = append(dst, dst[len(dataBuffer)-1])
-				dst = make([]byte, len(dataBuffer))
-				copy(dst, dataBuffer)
-				decode = append(decode, dst...)
-				dst = make([]byte, len(dataBuffer))
-				copy(dst, dataBuffer)
-				dictionary[counter] = dst
-				counter++
-
+				continue
 			}
 		}
-		if counter == uint64(dictionarySize) {
-			counter = 0
-		}
-	}
 
-	file, err := os.Create("output.txt")
-	if err != nil {
-		fmt.Println("Ошибка создания файла:", err)
-	}
-	defer file.Close()
+		decode = append(decode, entry...)
+		dst := make([]byte, len(w))
+		copy(dst, w)
+		dictionary[uint32(currentSize)] = append(dst, entry[0])
+		currentSize++
+		w = entry
 
-	// Итерация по мапе и запись в файл
-	for key, value := range dictionary {
-		// Преобразование ключа и значения в строку
-		keyStr := fmt.Sprintf("%d", key)
-		valueStr := fmt.Sprintf("%v", value)
-
-		// Запись ключа и значения в файл
-		line := keyStr + ": " + valueStr + "\n"
-		_, err = file.WriteString(line)
-		if err != nil {
-			fmt.Println("Ошибка записи в файл:", err)
+		if currentSize == dictionarySize+256 {
+			currentSize = 256
+			dictionary = make(map[uint32][]byte)
+			for i := 0; i < 256; i++ {
+				dictionary[uint32(i)] = []byte{byte(i)}
+			}
 		}
 	}
 
 	return &decode
 }
-
-// func Decode(data *[]byte) *[]byte {
-// 	decode := make([]byte, 0, 4*len(*data))
-// 	var dictionarySize uint32 = 0
-
-// 	dictionary := make(map[uint64][]byte)
-
-// 	dataBuffer := make([]byte, 0, len(*data))
-
-// 	dictionarySize = bytesToUint32((*data)[4:8])
-
-// 	dataBuffer = append(dataBuffer, byte(bytesToUint32((*data)[4:8])))
-
-// 	decode = append(decode, (*data)[7])
-
-// 	var counter uint64 = 0
-
-// 	for i := 8; i < len(*data); i += 4 {
-// 		if _, ok := dictionary[counter]; ok {
-// 			delete(dictionary, counter)
-// 		}
-
-// 		code := bytesToUint32((*data)[i : i+4])
-// 		if code < 256 {
-// 			decode = append(decode, byte(code))
-// 			dst := make([]byte, len(dataBuffer))
-// 			copy(dst, dataBuffer)
-// 			dictionary[counter] = append(dst, byte(code))
-// 			counter++
-// 			dataBuffer = []byte{byte(code)}
-// 		} else {
-// 			if val, ok := dictionary[uint64(code)-256]; ok {
-// 				dst1 := make([]byte, len(val))
-// 				copy(dst1, val)
-// 				decode = append(decode, dst1...)
-// 				dst2 := make([]byte, len(dataBuffer))
-// 				copy(dst2, dataBuffer)
-// 				dictionary[counter] = append(dst2, dst1[0])
-// 			}
-// 		}
-// 	}
-// }
