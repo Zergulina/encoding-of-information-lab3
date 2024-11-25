@@ -1,22 +1,27 @@
 package main
 
 import (
-	"LAB3/haffman"
+	"LAB3/lzw"
 	"os"
 )
 
 func main() {
 	data, _ := os.ReadFile("D:/bmp/rgb.bmp")
 
-	encodedData := haffman.HaffmanEncode(data)
+	encodedData := lzw.Encode(&data, 10000000)
 
-	os.WriteFile("D:/bmp/rgb.zap", encodedData, os.ModeAppend)
+	os.WriteFile("D:/bmp/rgb.zap", *encodedData, os.ModeAppend)
 
 	zippedData, _ := os.ReadFile("D:/bmp/rgb.zap")
 
-	decoded := haffman.HaffmanDecode(zippedData)
+	decoded := lzw.Decode(&zippedData)
 
-	os.WriteFile("D:/bmp/rgb1.bmp", decoded, os.ModeAppend)
+	// fmt.Println(data[213582:213612])
+	// fmt.Println((*decoded)[213582:213612])
+
+	os.WriteFile("D:/bmp/rgb1.bmp", *decoded, os.ModeAppend)
+
+	// fmt.Println(*decoded)
 
 	// fmt.Println(len(encodedData), len(zippedData))
 

@@ -84,7 +84,7 @@ func BuildHuffmanCodes(root *Node) *map[byte]string {
 	return &huffmanCodes
 }
 
-func HaffmanEncode(data []byte) []byte {
+func Encode(data []byte) []byte {
 	countedBytes := CountBytes(data)
 	haffmanTree := BuildHuffmanTree(data, countedBytes)
 	codes := BuildHuffmanCodes(haffmanTree)
@@ -168,7 +168,7 @@ func BuildHuffmanDecodes(root *Node) *map[string]byte {
 	return &huffmanCodes
 }
 
-func HaffmanDecode(data []byte) []byte {
+func Decode(data []byte) []byte {
 	var terminateBuffer = [5]byte{}
 	var dataStartBios = 0
 
